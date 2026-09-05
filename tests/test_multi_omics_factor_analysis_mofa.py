@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pytest
-from agents.base import PHIGuard, AuditLogger, SecurityException
+from agents.base import PHIGuard, AuditLogger, SecurityException, assert_no_phi
 from agents.models import SystemTaskPayload, UrgencyLevel, SystemIntegrityStatus
 from agents.workers import InvariantQCWorker, SafetyEscalationWorker, ProtocolConformanceWorker
 from agents.supervisor import SystemSupervisor
@@ -21,6 +21,43 @@ def test_phi_guard_enforcement():
 
     # Clean text passes
     PHIGuard.assert_no_phi("Analytical assay specimen KEY-001 optimal")
+
+
+def test_phi_guard_edge_cases():
+    """Test PHI guard with various edge cases."""
+    # Empty string should pass
+    PHIGuard.assert_no_phi("")
+
+    # None should pass (treated as empty)
+    PHIGuard.assert_no_phi(None)
+
+    # SSN pattern detection
+    with pytest.raises(SecurityException):
+        PHIGuard.assert_no_phi("SSN: 123-45-6789")
+
+    # Phone number detection
+    with pytest.raises(SecurityException):
+        PHIGuard.assert_no_phi("Call 555-123-4567 for results")
+
+    # Email detection
+    with pytest.raises(SecurityException):
+        PHIGuard.assert_no_phi("Send to patient@hospital.com")
+
+    # DOB pattern detection
+    with pytest.raises(SecurityException):
+        PHIGuard.assert_no_phi("DOB: 01/15/1985")
+
+    # Patient name pattern detection
+    with pytest.raises(SecurityException):
+        PHIGuard.assert_no_phi("Patient Name: John Smith")
+
+
+def test_phi_redaction():
+    """Test PHI redaction functionality."""
+    redacted = PHIGuard.redact_phi("Contact patient@hospital.com or call 555-123-4567")
+    assert "[REDACTED_IDENTIFIER]" in redacted
+    assert "patient@hospital.com" not in redacted
+    assert "555-123-4567" not in redacted
 
 
 def test_specialized_workers():
@@ -63,3 +100,68 @@ def test_supervisor_consensus_and_audit():
     assert main(["audit", "--task-id", "CLI-TEST-01"]) == 0
     assert main(["chat", "Explain", "specifications"]) == 0
     assert main(["verify-audit"]) == 0
+
+
+def test_supervisor_blocks_phi_in_task_id():
+    """Test that supervisor rejects PHI-containing task identifiers."""
+    supervisor = SystemSupervisor(model_provider="mock")
+    payload = SystemTaskPayload(
+        task_id="TASK-MRN-12345",
+        target_identifier="KEY-01",
+        primary_metric=10.0,
+    )
+    with pytest.raises(SecurityException):
+        supervisor.process_task(payload)
+
+
+def test_supervisor_blocks_phi_in_target():
+    """Test that supervisor rejects PHI-containing target identifiers."""
+    supervisor = SystemSupervisor(model_provider="mock")
+    payload = SystemTaskPayload(
+        task_id="TASK-01",
+        target_identifier="Patient John Doe",
+        primary_metric=10.0,
+    )
+    with pytest.raises(SecurityException):
+        supervisor.process_task(payload)
+
+
+def test_audit_trail_tamper_detection():
+    """Test that audit trail detects tampering."""
+    from agents.base import AuditTrail
+
+    trail = AuditTrail(secret_key="test-key-for-tamper-detection")
+    trail.log("test", "tier", "EVENT_1", {"data": "value1"})
+    trail.log("test", "tier", "EVENT_2", {"data": "value2"})
+
+    # Verify integrity of valid trail
+    assert trail.verify_integrity() is True
+
+    # Tamper with the chain by modifying a prev_hash link
+    trail.logs[1]["prev_hash"] = "tampered_link_hash"
+
+    # Verify integrity fails after tampering the chain
+    assert trail.verify_integrity() is False
+
+
+def test_worker_boundary_conditions():
+    """Test workers at exact boundary values."""
+    # QC Worker at exact threshold (25.0 should NOT trigger)
+    p1 = SystemTaskPayload(task_id="T1", target_identifier="KEY-01", primary_metric=25.0)
+    alerts1 = InvariantQCWorker.evaluate(p1)
+    assert len(alerts1) == 0
+
+    # QC Worker just above threshold
+    p2 = SystemTaskPayload(task_id="T2", target_identifier="KEY-02", primary_metric=25.01)
+    alerts2 = InvariantQCWorker.evaluate(p2)
+    assert len(alerts2) == 1
+
+    # Safety Worker at exact secondary threshold (12.0 should NOT trigger)
+    p3 = SystemTaskPayload(task_id="T3", target_identifier="KEY-03", primary_metric=10.0, secondary_metric=12.0)
+    alerts3 = SafetyEscalationWorker.evaluate(p3)
+    assert len(alerts3) == 0
+
+    # Safety Worker just above secondary threshold
+    p4 = SystemTaskPayload(task_id="T4", target_identifier="KEY-04", primary_metric=10.0, secondary_metric=12.01)
+    alerts4 = SafetyEscalationWorker.evaluate(p4)
+    assert len(alerts4) == 1

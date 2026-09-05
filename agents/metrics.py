@@ -1,7 +1,6 @@
 """
 Prometheus Operational Metrics Exporter for multi-omics-factor-analysis-mofa.
 """
-import time
 from typing import Dict, Any
 
 class SystemMetricsCollector:

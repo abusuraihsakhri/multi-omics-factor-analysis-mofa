@@ -3,8 +3,7 @@ Core Algorithmic Engine & Cryptographic / Biological Logic for MOFA-Integrator: 
 Domain: Biomedical Scientific Discovery & Multi-Omics
 Standard: Multi-Omics Factor Analysis (MOFA+) Framework
 """
-import math
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, Optional
 from .models import FrontierPayload, AgentTelemetryAlert, ExecutionStatus
 
 
