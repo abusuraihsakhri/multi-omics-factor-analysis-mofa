@@ -11,6 +11,19 @@ from .agents import MOFACoordinator
 coordinator = MOFACoordinator()
 
 
+def parse_csv_bool(value):
+    """Parse explicit boolean CSV tokens instead of bool('False') == True."""
+    if isinstance(value, bool):
+        return value
+    token = str(value or "").strip().lower()
+    if token in ("", "false", "0", "no", "n", "off"):
+        return False
+    if token in ("true", "1", "yes", "y", "on"):
+        return True
+    raise ValueError(f"Invalid is_critical_flag value: {value!r}")
+
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="multi-omics-factor-analysis-mofa", description="MOFA-Integrator: Multi-Omics Factor Analysis & Variance Decomposition Agent")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -74,7 +87,7 @@ def main(argv=None):
             fieldnames = list(reader.fieldnames or [])
             rows = list(reader)
 
-        out_fields = fieldnames + ["overall_status", "total_alerts", "critical_count", "consensus_summary"]
+        out_fields = list(dict.fromkeys(fieldnames + ["overall_status", "total_alerts", "critical_count", "consensus_summary"]))
         out_rows = []
         for r in rows:
             payload = FrontierPayload(
@@ -83,7 +96,7 @@ def main(argv=None):
                 primary_metric=float(r.get("primary_metric", 15.0)),
                 secondary_metric=float(r.get("secondary_metric", 5.0)),
                 status_descriptor=r.get("status_descriptor", "NOMINAL"),
-                is_critical_flag=bool(r.get("is_critical_flag", False)),
+                is_critical_flag=parse_csv_bool(r.get("is_critical_flag", False)),
             )
             dossier = coordinator.process(payload)
             row_dict = dict(r)
