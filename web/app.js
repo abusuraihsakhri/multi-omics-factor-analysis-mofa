@@ -87,21 +87,23 @@ function evaluateTask(raw) {
 
 function parseCsv(text) {
   const rows = [];
-  let row = [], field = "", quoted = false;
+  let row = [], field = "", quoted = false, closedQuote = false;
   const source = String(text).replace(/^\uFEFF/, "");
   for (let i = 0; i < source.length; i++) {
     const c = source[i];
     if (quoted) {
       if (c === '"' && source[i + 1] === '"') {field += '"'; i++;}
-      else if (c === '"') quoted = false;
+      else if (c === '"') { quoted = false; closedQuote = true; }
       else field += c;
+    } else if (closedQuote && c !== ',' && c !== '\n' && c !== '\r') {
+      throw new Error("Unexpected content after quoted CSV field.");
     } else if (c === '"' && field === "") quoted = true;
-    else if (c === ',') {row.push(field); field = "";}
+    else if (c === ',') {row.push(field); field = ""; closedQuote = false;}
     else if (c === '\n' || c === '\r') {
       if (c === '\r' && source[i + 1] === '\n') i++;
       row.push(field);
       if (row.some(v => v.trim() !== "")) rows.push(row);
-      row = []; field = "";
+      row = []; field = ""; closedQuote = false;
     } else if (c === '"') {
       throw new Error("Invalid quote in CSV field.");
     } else field += c;
