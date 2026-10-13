@@ -73,7 +73,7 @@ def main(argv=None):
         dossier = coordinator.process(payload)
         print("=" * 80)
         print(f"  MOFA-INTEGRATOR: MULTI-OMICS FACTOR ANALYSIS & VARIANCE DECOMPOSITION AGENT")
-        print(f"  Domain: Biomedical Scientific Discovery & Multi-Omics | Standard: Multi-Omics Factor Analysis (MOFA+) Framework")
+        print(f"  Domain: Biomedical Scientific Discovery & Multi-Omics | Standard: project-defined example screening rules (not MOFA+ factor analysis)")
         print(f"  Task: {dossier['task_id']} | Status: [{dossier['overall_status']}] | Total Alerts: {dossier['total_alerts']}")
         print("=" * 80)
         for a in dossier["alerts"]:
