@@ -89,3 +89,15 @@ def test_api_phi_error_is_client_error():
     })
     assert response.status_code == 400
     assert "MRN-123456" not in response.text
+
+
+@pytest.mark.parametrize("runner", [main_cli, alternate_main])
+def test_batch_csv_export_escapes_spreadsheet_formulas(tmp_path: Path, runner):
+    source = tmp_path / "input.csv"
+    output = tmp_path / "results.csv"
+    source.write_text("task_id,target_identifier,primary_metric\n"
+                      "=2+2,S1,8\n", encoding="utf-8")
+    assert runner(["batch", "-i", str(source), "-o", str(output)]) == 0
+    with output.open(newline="", encoding="utf-8") as handle:
+        row = next(csv.DictReader(handle))
+    assert row["task_id"] == "'=2+2"
