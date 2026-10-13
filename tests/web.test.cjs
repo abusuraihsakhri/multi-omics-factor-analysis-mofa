@@ -63,6 +63,7 @@ test("malformed or absent CSV headers rejected", () => {
   assert.throws(() => parseCsv("task_id,primary_metric\nT1,4"), /target_identifier/);
   assert.throws(() => parseCsv('task_id,target_identifier,primary_metric\n"T1,ABC,12'), /Unterminated/);
   assert.throws(() => parseCsv("task_id,target_identifier,primary_metric\nT1,S1"), /column count/);
+  assert.throws(() => parseCsv('task_id,target_identifier,primary_metric\n"T"X,S1,10'), /Unexpected/);
 });
 
 test("export quotes dangerous spreadsheet formulas", () => {
