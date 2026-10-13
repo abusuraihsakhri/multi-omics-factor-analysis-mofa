@@ -15,7 +15,7 @@ def create_app():
 
         app = FastAPI(
             title="MOFA-Integrator: Multi-Omics Factor Analysis & Variance Decomposition Agent",
-            description="Integrates transcriptomics, proteomics, and metabolomics matrices via Bayesian group factor analysis, decomposing variance per biological factor.",
+            description="Evaluates project-defined thresholds and descriptor flags; does not perform Bayesian factor analysis.",
             version="2.0.0-FRONTIER",
         )
 

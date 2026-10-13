@@ -11,6 +11,27 @@ from .agents import MOFACoordinator
 coordinator = MOFACoordinator()
 
 
+def parse_csv_bool(value):
+    """Parse explicit boolean CSV tokens instead of bool('False') == True."""
+    if isinstance(value, bool):
+        return value
+    token = str(value or "").strip().lower()
+    if token in ("", "false", "0", "no", "n", "off"):
+        return False
+    if token in ("true", "1", "yes", "y", "on"):
+        return True
+    raise ValueError(f"Invalid is_critical_flag value: {value!r}")
+
+
+
+def safe_csv_text(value):
+    """Prevent spreadsheet formula execution when opening exported CSV."""
+    if isinstance(value, str) and (value[:1] in ("=", "+", "-", "@", "\t", "\r", "\n")
+                                   or value.lstrip()[:1] in ("=", "+", "-", "@")):
+        return "'" + value
+    return value
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="multi-omics-factor-analysis-mofa", description="MOFA-Integrator: Multi-Omics Factor Analysis & Variance Decomposition Agent")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -52,7 +73,7 @@ def main(argv=None):
         dossier = coordinator.process(payload)
         print("=" * 80)
         print(f"  MOFA-INTEGRATOR: MULTI-OMICS FACTOR ANALYSIS & VARIANCE DECOMPOSITION AGENT")
-        print(f"  Domain: Biomedical Scientific Discovery & Multi-Omics | Standard: Multi-Omics Factor Analysis (MOFA+) Framework")
+        print(f"  Domain: Biomedical Scientific Discovery & Multi-Omics | Standard: project-defined example screening rules (not MOFA+ factor analysis)")
         print(f"  Task: {dossier['task_id']} | Status: [{dossier['overall_status']}] | Total Alerts: {dossier['total_alerts']}")
         print("=" * 80)
         for a in dossier["alerts"]:
@@ -74,7 +95,7 @@ def main(argv=None):
             fieldnames = list(reader.fieldnames or [])
             rows = list(reader)
 
-        out_fields = fieldnames + ["overall_status", "total_alerts", "critical_count", "consensus_summary"]
+        out_fields = list(dict.fromkeys(fieldnames + ["overall_status", "total_alerts", "critical_count", "consensus_summary"]))
         out_rows = []
         for r in rows:
             payload = FrontierPayload(
@@ -83,7 +104,7 @@ def main(argv=None):
                 primary_metric=float(r.get("primary_metric", 15.0)),
                 secondary_metric=float(r.get("secondary_metric", 5.0)),
                 status_descriptor=r.get("status_descriptor", "NOMINAL"),
-                is_critical_flag=bool(r.get("is_critical_flag", False)),
+                is_critical_flag=parse_csv_bool(r.get("is_critical_flag", False)),
             )
             dossier = coordinator.process(payload)
             row_dict = dict(r)
@@ -91,6 +112,9 @@ def main(argv=None):
             row_dict["total_alerts"] = dossier["total_alerts"]
             row_dict["critical_count"] = dossier["critical_count"]
             row_dict["consensus_summary"] = dossier["consensus_summary"]
+            for key, value in row_dict.items():
+                if key not in ("primary_metric", "secondary_metric", "total_alerts", "critical_count"):
+                    row_dict[key] = safe_csv_text(value)
             out_rows.append(row_dict)
 
         with open(args.output, mode="w", encoding="utf-8", newline="") as f:

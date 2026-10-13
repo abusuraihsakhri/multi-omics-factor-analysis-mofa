@@ -1,7 +1,7 @@
 """
 Data Models & Telemetry Definitions for MOFA-Integrator: Multi-Omics Factor Analysis & Variance Decomposition Agent.
 Domain: Biomedical Scientific Discovery & Multi-Omics
-Standard: Multi-Omics Factor Analysis (MOFA+) Framework
+Standard: project-defined example screening rules (not MOFA+ factor analysis)
 """
 import datetime
 from dataclasses import dataclass, field
@@ -35,7 +35,7 @@ class AgentTelemetryAlert:
     summary: str
     technical_details: str
     actionable_remediation: str
-    standard_reference: str = "Multi-Omics Factor Analysis (MOFA+) Framework"
+    standard_reference: str = "project-defined example screening rules (not MOFA+ factor analysis)"
     timestamp: str = field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
 
     def to_dict(self) -> Dict[str, Any]:

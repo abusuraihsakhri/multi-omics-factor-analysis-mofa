@@ -3,6 +3,7 @@ Supervisor Orchestrator & Operations Intelligence for Multi Omics Factor Analysi
 Domain: Clinical & Biomedical AI
 """
 import uuid
+import json
 from typing import Dict, Any, List, Optional
 from .base import AuditLogger, PHIGuard
 from .models import SystemTaskPayload, AgentAlert, ConsensusDossier, UrgencyLevel, SystemIntegrityStatus
@@ -22,9 +23,8 @@ class SystemSupervisor:
 
     def process_task(self, payload: SystemTaskPayload, actor: str = "SystemSupervisor") -> ConsensusDossier:
         # Zero-PHI outbound validation
-        PHIGuard.assert_no_phi(payload.task_id)
-        PHIGuard.assert_no_phi(payload.target_identifier)
-        PHIGuard.assert_no_phi(payload.status_descriptor)
+        PHIGuard.assert_no_phi(json.dumps(payload.model_dump(), ensure_ascii=False))
+        PHIGuard.assert_no_phi(actor)
 
         # Multi-worker evaluations
         all_alerts: List[AgentAlert] = []
@@ -75,5 +75,5 @@ class SystemSupervisor:
 
     def query_supervisory_chat(self, query: str) -> str:
         PHIGuard.assert_no_phi(query)
-        prompt = f"Supervisor inquiry for Multi Omics Factor Analysis Mofa under CAP / CLSI / ISO Standards: {query}"
+        prompt = f"Supervisor inquiry for Multi Omics Factor Analysis Mofa under project-defined example screening rules: {query}"
         return self.llm.invoke(prompt)

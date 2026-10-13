@@ -12,6 +12,27 @@ from agents.base import AuditLogger
 supervisor = SystemSupervisor(model_provider="mock")
 
 
+def parse_csv_bool(value):
+    """Parse explicit boolean CSV tokens instead of bool('False') == True."""
+    if isinstance(value, bool):
+        return value
+    token = str(value or "").strip().lower()
+    if token in ("", "false", "0", "no", "n", "off"):
+        return False
+    if token in ("true", "1", "yes", "y", "on"):
+        return True
+    raise ValueError(f"Invalid is_critical_flag value: {value!r}")
+
+
+
+def safe_csv_text(value):
+    """Prevent spreadsheet formula execution when opening exported CSV."""
+    if isinstance(value, str) and (value[:1] in ("=", "+", "-", "@", "\t", "\r", "\n")
+                                   or value.lstrip()[:1] in ("=", "+", "-", "@")):
+        return "'" + value
+    return value
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="multi-omics-factor-analysis-mofa", description="Multi Omics Factor Analysis Mofa")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -56,7 +77,7 @@ def main(argv=None):
         dossier = supervisor.process_task(payload)
         print("=" * 80)
         print(f"  MULTI OMICS FACTOR ANALYSIS MOFA")
-        print(f"  Domain: Clinical & Biomedical AI | Standard: CAP / CLSI / ISO Standards")
+        print(f"  Domain: Clinical & Biomedical AI | Standard: project-defined example screening rules")
         print(f"  Dossier ID: {dossier.dossier_id} | Urgency: [{dossier.overall_urgency.value}]")
         print("=" * 80)
         for a in dossier.alerts:
@@ -85,7 +106,7 @@ def main(argv=None):
             fieldnames = list(reader.fieldnames or [])
             rows = list(reader)
 
-        out_fields = fieldnames + ["overall_urgency", "integrity_status", "total_alerts", "audit_hash"]
+        out_fields = list(dict.fromkeys(fieldnames + ["overall_urgency", "integrity_status", "total_alerts", "audit_hash"]))
         out_rows = []
         for r in rows:
             payload = SystemTaskPayload(
@@ -94,7 +115,7 @@ def main(argv=None):
                 primary_metric=float(r.get("primary_metric", 15.0)),
                 secondary_metric=float(r.get("secondary_metric", 5.0)),
                 status_descriptor=r.get("status_descriptor", "NOMINAL"),
-                is_critical_flag=bool(r.get("is_critical_flag", False)),
+                is_critical_flag=parse_csv_bool(r.get("is_critical_flag", False)),
             )
             dossier = supervisor.process_task(payload)
             row_dict = dict(r)
@@ -102,6 +123,9 @@ def main(argv=None):
             row_dict["integrity_status"] = dossier.integrity_status.value
             row_dict["total_alerts"] = dossier.total_alerts
             row_dict["audit_hash"] = dossier.audit_hash
+            for key, value in row_dict.items():
+                if key not in ("primary_metric", "secondary_metric", "total_alerts", "critical_count"):
+                    row_dict[key] = safe_csv_text(value)
             out_rows.append(row_dict)
 
         with open(args.output, mode="w", encoding="utf-8", newline="") as f:
