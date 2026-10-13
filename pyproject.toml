@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "multi-omics-factor-analysis-mofa"
 version = "2.0.0"
-description = "MOFA-Integrator: Multi-Omics Factor Analysis & Variance Decomposition Engine"
+description = "Rule-based metric auditing for de-identified multi-omics workflows"
 readme = "README.md"
 authors = [{ name = "Dr. Abu Suraih Sakhri", email = "abusuraih@example.com" }]
 license = { text = "MIT" }
@@ -17,11 +17,20 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 requires-python = ">=3.9"
-dependencies = []
+dependencies = ["pydantic>=2,<3"]
+
+[project.optional-dependencies]
+server = ["fastapi>=0.115,<1", "uvicorn>=0.30,<1"]
+dev = ["pytest>=8,<10", "httpx>=0.27,<1"]
 
 [project.scripts]
-multi-omics-factor-analysis-mofa = "mofa_integrator.cli:main"
+multi-omics-factor-analysis-mofa = "cli:main"
+mofa-integrator-legacy = "mofa_integrator.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/abusuraihsakhri/multi-omics-factor-analysis-mofa"
 Repository = "https://github.com/abusuraihsakhri/multi-omics-factor-analysis-mofa.git"
+
+[tool.setuptools]
+packages = ["agents", "mofa_integrator"]
+py-modules = ["cli", "enrichment", "simulator", "mofa_integrator_app"]
