@@ -3,7 +3,7 @@ FastAPI REST API Server for Multi Omics Factor Analysis Mofa.
 """
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from .base import AuditLogger, PHIGuard
+from .base import AuditLogger, PHIGuard, SecurityException
 from .models import SystemTaskPayload
 from .supervisor import SystemSupervisor
 
@@ -36,7 +36,10 @@ def metrics():
 
 @app.post("/api/audit")
 def api_audit(payload: SystemTaskPayload):
-    dossier = supervisor.process_task(payload)
+    try:
+        dossier = supervisor.process_task(payload)
+    except SecurityException:
+        raise HTTPException(status_code=400, detail="Input contains a blocked sensitive identifier")
     return dossier.to_dict()
 
 
@@ -45,8 +48,8 @@ def api_chat(req: ChatRequest):
     try:
         ans = supervisor.query_supervisory_chat(req.query)
         return {"response": ans}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except SecurityException:
+        raise HTTPException(status_code=400, detail="Input contains a blocked sensitive identifier")
 
 
 @app.get("/api/audit/logs")
