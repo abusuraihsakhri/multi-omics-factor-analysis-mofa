@@ -22,7 +22,7 @@ class ChatRequest(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "HEALTHY", "service": "multi-omics-factor-analysis-mofa", "domain": "Clinical & Biomedical AI", "standard": "CAP / CLSI / ISO Standards", "version": "3.0.0-ENTERPRISE"}
+    return {"status": "HEALTHY", "service": "multi-omics-factor-analysis-mofa", "domain": "Clinical & Biomedical AI", "standard": "project-defined example screening rules", "version": "3.0.0-ENTERPRISE"}
 
 
 @app.get("/metrics")
