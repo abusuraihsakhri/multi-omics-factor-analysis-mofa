@@ -1,202 +1,66 @@
-# Multi Omics Factor Analysis MOFA
+# Multi-Omics Rule Audit
 
-> **Domain:** Clinical Decision Support & Biomedical Computing
+Deterministic threshold screening of **de-identified** multi-omics research records. Includes a static browser application, Python CLI, and optional FastAPI service.
 
-<div align="center">
+**Scientific limitation:** Despite this repository's historical name, it does **not** implement MOFA/MOFA+ Bayesian multi-view latent-factor inference, factor loadings, or variance decomposition. Its thresholds are project-defined example rules, not established MOFA+, CAP, CLSI, or clinical validation criteria. Do not use the results for diagnosis or treatment.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB.svg?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688.svg?logo=fastapi&logoColor=white)
-![Audit Trail](https://img.shields.io/badge/Audit-HMAC--SHA256_Tamper--Evident-brightgreen.svg)
-![Zero-PHI Guard](https://img.shields.io/badge/Guard-Zero--PHI_Outbound-blue.svg)
-![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)
+## Features
 
-</div>
+- Rule checks: primary metric >25; secondary metric >12 or explicit critical flag; descriptor tokens (`DISCORDANT`, `ANOMALY`, `MUTANT`, `VIOLATION`, `FAIL`, `REJECT`).
+- Browser: single-record audit, local CSV batch processing (2 MB, 5,000 rows), JSON preview and downloadable CSV.
+- Python: CLI, batch CSV, in-memory HMAC-SHA256 audit log, supervisor query, and optional REST API.
+- API: `GET /health`, `GET /metrics`, `POST /api/audit`, `POST /api/chat`, `GET /api/audit/logs`.
 
----
+## Browser use
 
-## Overview
+Open `web/index.html`, or run `python -m http.server 8080` from the repository root and visit `http://localhost:8080/web/`.
 
-**Multi Omics Factor Analysis MOFA** is an analytical platform implementing Multi-Omics Factor Analysis (MOFA+) Bayesian group factor variance decomposition. It provides clinical decision support with multi-agent consensus evaluation, cryptographic audit trails, and PHI (Protected Health Information) outbound protection.
+Enter de-identified research codes and finite measurements, then choose **Evaluate rules**. Alternatively select a CSV file and download the batch results. The web app runs entirely in JavaScript. It does not invoke Pyodide, use backend APIs, upload files, retain browser storage, or generate cryptographic audit hashes.
 
----
+## Python setup and CLI
 
-## Key Features
+Install Python 3.10–3.13 and run:
 
-- **Multi-Agent Consensus**: Three specialized workers evaluate each task:
-  - `InvariantQCWorker` - Primary metric threshold auditing
-  - `SafetyEscalationWorker` - Critical safety interlock detection
-  - `ProtocolConformanceWorker` - Specification conformance checking
-- **PHI Outbound Guard**: Regex-based detection and blocking of SSNs, MRNs, phone numbers, emails, DOBs, and patient names
-- **HMAC-SHA256 Audit Trail**: Cryptographic, tamper-evident chained logging
-- **FastAPI REST API**: OpenAPI 3.1 endpoints for task processing and chat
-- **Prometheus Metrics**: Operational telemetry export
-- **Active Learning Calibration**: Bayesian worker weight adjustment
+`python -m pip install -e ".[server,dev]"`
 
----
+Run a single record:
 
-## Installation
+`multi-omics-factor-analysis-mofa audit --task-id T1 --target SAMPLE-1 --primary 28 --secondary 13 --status NOMINAL`
 
-```bash
-# Clone the repository
-git clone https://github.com/abusuraihsakhri/multi-omics-factor-analysis-mofa.git
-cd multi-omics-factor-analysis-mofa
+Batch CSV:
 
-# Install dependencies
-pip install -e ".[dev]"
+`multi-omics-factor-analysis-mofa batch -i sample.csv -o results.csv`
 
-# Or install runtime dependencies only
-pip install fastapi uvicorn pydantic
-```
+Verify the *current process's* audit log:
 
----
+`multi-omics-factor-analysis-mofa verify-audit`
 
-## Configuration
+Start the API:
 
-Set the `AUDIT_SECRET_KEY` environment variable for persistent audit integrity:
+`multi-omics-factor-analysis-mofa serve --host 127.0.0.1 --port 8000`
 
-```bash
-# Generate a secure key
-export AUDIT_SECRET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))")
+Open `http://127.0.0.1:8000/docs` for its interactive API documentation. The CLI-only install is `python -m pip install -e .`. The older alternative implementation remains under `mofa-integrator-legacy` with different thresholds and response fields.
 
-# Or copy the example env file
-cp .env.example .env
-# Edit .env with your secure values
-```
+### CSV schema
 
-**Required Environment Variables:**
-- `AUDIT_SECRET_KEY` - HMAC-SHA256 signing key (generate with `secrets.token_hex(32)`)
+Required: `task_id,target_identifier,primary_metric`. Optional: `secondary_metric,status_descriptor,is_critical_flag`. Booleans accept true/false, 1/0, yes/no, or on/off (case-insensitive); blank means false. Use de-identified sample codes.
 
-**Optional Environment Variables:**
-- `MODEL_PROVIDER` - LLM provider: `mock` (default), `ollama`, `claude`, `openai`
+## Privacy and security
 
----
+- Do **not** provide identifiable patient data. Regex guards cover selected identifier formats but are not comprehensive de-identification or HIPAA compliance.
+- The Python HMAC chain verifies signed fields; it is held **in memory** and not persisted after a process restart. Set a strong `AUDIT_SECRET_KEY` for a stable signing key; without one the app creates an ephemeral key. Do not publish the key.
+- The API has no built-in authentication. Docker Compose binds port 8000 to loopback, not the public internet. Configure access controls before exposing it on a network.
+- The chat provider is a deterministic mock, not a deployed external model.
+- There are no application-origin network requests or browser storage in the static site.
 
-## Usage
+## Tests and deployment
 
-### CLI Commands
+Run `python -m pytest -q`, `node --test tests/web.test.cjs`, and `node --check web/app.js`.
 
-```bash
-# Single task evaluation
-python cli.py audit --task-id TASK-001 --target KEY-01 --primary 28.5 --secondary 14.2 --critical --status DISCORDANT
+CI tests Python 3.10–3.13 and Node 22. The GitHub Pages job publishes the browser-only `web/` directory after tests succeed on pushes to `master`. Browser requirements: a modern desktop or mobile browser with JavaScript and the File API. API deployment requires a Python server; GitHub Pages does not run it.
 
-# Interactive chat query
-python cli.py chat "What is the system status?"
-
-# Batch processing from CSV
-python cli.py batch -i sample.csv -o results.csv
-
-# Verify audit trail integrity
-python cli.py verify-audit
-
-# Start REST API server
-python cli.py serve --host 127.0.0.1 --port 8000
-```
-
-### REST API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/health` | Service health check |
-| GET | `/metrics` | Prometheus metrics |
-| POST | `/api/audit` | Submit task for evaluation |
-| POST | `/api/chat` | Query supervisor chat |
-| GET | `/api/audit/logs` | Retrieve audit trail |
-
-### Docker Deployment
-
-```bash
-# Build and run with Docker Compose
-cp .env.example .env
-# Edit .env with secure AUDIT_SECRET_KEY
-docker-compose up --build
-
-# Or use Docker directly
-docker build -t multi-omics-factor-analysis-mofa .
-docker run -p 8000:8000 --env-file .env multi-omics-factor-analysis-mofa
-```
-
----
-
-## Input Data Schema
-
-| Field | Type | Description | Required |
-|-------|------|-------------|----------|
-| `task_id` | string | Unique task/case identifier | Yes |
-| `target_identifier` | string | Entity or target key | Yes |
-| `primary_metric` | float | Primary measurement value | Yes |
-| `secondary_metric` | float | Secondary measurement value | No (default: 0.0) |
-| `status_descriptor` | string | Status code or phenotype | No (default: "NOMINAL") |
-| `is_critical_flag` | boolean | Emergency escalation trigger | No (default: false) |
-
----
-
-## Testing
-
-```bash
-# Run all tests
-pytest -v
-
-# Run with coverage
-pytest -v --cov=agents --cov-report=term-missing
-
-# Run specific test file
-pytest tests/test_multi_omics_factor_analysis_mofa.py -v
-
-# Run enrichment tests
-pytest tests/test_enrichment.py -v
-```
-
-**Test Coverage:**
-- PHI guard enforcement (SSN, MRN, phone, email, DOB, patient name patterns)
-- Audit trail integrity and tamper detection
-- Multi-agent consensus evaluation
-- Worker boundary condition testing
-- CLI command validation
-
----
-
-## Project Structure
-
-```
-multi-omics-factor-analysis-mofa/
-├── agents/                  # Core agent modules
-│   ├── api.py              # FastAPI REST server
-│   ├── base.py             # PHI guard, HMAC audit trail
-│   ├── models.py           # Pydantic data models
-│   ├── supervisor.py       # Multi-agent orchestrator
-│   ├── workers.py          # Specialized evaluation workers
-│   ├── llm_factory.py      # LLM provider factory
-│   ├── metrics.py          # Prometheus metrics
-│   ├── learning.py         # Bayesian calibration engine
-│   └── streamer.py         # WebSocket telemetry
-├── mofa_integrator/        # MOFA-Integrator sub-package
-│   ├── agents.py           # Coordinator and sub-agents
-│   ├── engine.py           # Core evaluation engine
-│   ├── models.py           # Data models
-│   ├── cli.py              # CLI entry point
-│   └── server.py           # FastAPI server factory
-├── tests/                  # Test suite
-├── web/                    # Web console (HTML)
-├── cli.py                  # Main CLI entry point
-├── simulator.py            # Stress testing simulator
-├── enrichment.py           # Enrichment feature engines
-├── Dockerfile              # Container build
-├── docker-compose.yml      # Container orchestration
-├── pyproject.toml          # Project configuration
-└── .env.example            # Environment template
-```
-
----
-
-## Security Considerations
-
-- **Audit Secret Key**: Always set `AUDIT_SECRET_KEY` in production. Without it, an ephemeral key is generated (audit trail won't persist across restarts).
-- **PHI Protection**: All outbound data is scanned for PHI patterns before logging or transmission.
-- **Docker Secrets**: Use `.env` file (git-ignored) or Docker secrets for sensitive configuration.
-
----
+Technology: Python, Pydantic 2, optional FastAPI/Uvicorn, HTML/CSS/JavaScript.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT; see [LICENSE](LICENSE).
