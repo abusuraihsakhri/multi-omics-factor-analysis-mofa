@@ -25,6 +25,14 @@ def parse_csv_bool(value):
 
 
 
+def safe_csv_text(value):
+    """Prevent spreadsheet formula execution when opening exported CSV."""
+    if isinstance(value, str) and (value[:1] in ("=", "+", "-", "@", "\t", "\r", "\n")
+                                   or value.lstrip()[:1] in ("=", "+", "-", "@")):
+        return "'" + value
+    return value
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="multi-omics-factor-analysis-mofa", description="Multi Omics Factor Analysis Mofa")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -115,6 +123,9 @@ def main(argv=None):
             row_dict["integrity_status"] = dossier.integrity_status.value
             row_dict["total_alerts"] = dossier.total_alerts
             row_dict["audit_hash"] = dossier.audit_hash
+            for key, value in row_dict.items():
+                if key not in ("primary_metric", "secondary_metric", "total_alerts", "critical_count"):
+                    row_dict[key] = safe_csv_text(value)
             out_rows.append(row_dict)
 
         with open(args.output, mode="w", encoding="utf-8", newline="") as f:
