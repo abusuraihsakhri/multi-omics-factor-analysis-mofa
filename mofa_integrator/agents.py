@@ -93,7 +93,7 @@ class MOFACoordinator:
             "critical_count": crit_count,
             "warning_count": warn_count,
             "alerts": [a.to_dict() for a in all_alerts],
-            "standard_specification": "Multi-Omics Factor Analysis (MOFA+) Framework",
+            "standard_specification": "project-defined example screening rules (not MOFA+ factor analysis)",
             "consensus_summary": f"Consensus evaluation completed across 3 sub-agents with status [{status.value}].",
         }
 
@@ -105,6 +105,6 @@ class MOFACoordinator:
         if "status" in q or "ledger" in q:
             return f"MOFA-Integrator: Multi-Omics Factor Analysis & Variance Decomposition Agent currently managing {len(self.execution_ledger)} execution tasks in air-gapped memory."
         elif "standard" in q or "spec" in q:
-            return "Active runtime operating strictly according to Multi-Omics Factor Analysis (MOFA+) Framework specifications."
+            return "Active runtime operating strictly according to project-defined example screening rules (not MOFA+ factor analysis) specifications."
         else:
             return f"MOFA-Integrator: Multi-Omics Factor Analysis & Variance Decomposition Agent executive coordinator online. Zero-telemetry on-premises surveillance active."
